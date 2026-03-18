@@ -30,7 +30,19 @@ class TaskRouter:
         task_lower = task.lower()
         risk_keywords = self.config.get('risk_keywords', {})
         
-        # 高风险检查
+        # 高风险检查 - 支持模式匹配
+        high_risk_patterns = [
+            r'\|\s*(bash|sh|zsh|fish)',
+            r'eval\s+',
+            r'exec\s+',
+            r'shell_exec\(',
+            r'system\(',
+        ]
+        
+        for pattern in high_risk_patterns:
+            if re.search(pattern, task_lower):
+                return 'high'
+        
         for keyword in risk_keywords.get('high', []):
             if keyword in task_lower:
                 return 'high'
