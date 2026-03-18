@@ -27,7 +27,8 @@ class RemoteExecutor:
         return [
             'ssh',
             '-o', 'StrictHostKeyChecking=no',
-            '-o', 'ConnectTimeout=30',
+            '-o', 'ConnectTimeout=60',
+            '-o', 'ServerAliveInterval=10',
             ssh.get('user', 'zzc'),
             '-p', str(ssh.get('port', 2222)),
             ssh.get('host', '192.168.130.33')
