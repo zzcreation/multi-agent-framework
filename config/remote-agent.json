@@ -1,0 +1,45 @@
+{
+  "remote_gateway": "ws://192.168.130.33:18789",
+  "ssh_config": {
+    "host": "192.168.130.33",
+    "port": 2222,
+    "user": "zzc"
+  },
+  "agents": {
+    "assistant": {
+      "role": "assistant",
+      "description": "当本地资源紧张时协助处理拆分后的任务模块",
+      "trigger_conditions": [
+        "local_cpu_usage > 80",
+        "task_queue_length > 5",
+        "parallel_tasks > 3"
+      ]
+    },
+    "reviewer": {
+      "role": "reviewer", 
+      "description": "测试项目，用来二次验证本地工程项目是否存在漏洞或可优化建议",
+      "trigger_conditions": [
+        "code_review_requested",
+        "security_audit",
+        "optimization_review",
+        "new_module_created"
+      ]
+    },
+    "sandbox": {
+      "role": "sandbox",
+      "description": "本地沙盒测试，测试可能存在更大风险的操作和自动化流程",
+      "trigger_conditions": [
+        "high_risk_command",
+        "unknown_script",
+        "production_operation",
+        "system_modification",
+        "network_operation"
+      ]
+    }
+  },
+  "risk_keywords": {
+    "high": ["rm -rf", "dd if=", ":(){:|:&};:", "chmod 777", "mkfs", "shutdown", "reboot", "curl | bash", "wget | bash", "eval", "exec ", "system(", "shell_exec"],
+    "medium": ["sudo", "apt install", "npm install -g", "pip install", "docker", "kill ", "pkill", "killall"],
+    "low": ["git", "cat", "ls", "cd ", "pwd", "echo", "grep", "find"]
+  }
+}
