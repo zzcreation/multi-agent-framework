@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openclaw-control-plane-pdb
+  namespace: openclaw-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      component: control-plane
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openclaw-worker-pdb
+  namespace: openclaw-system
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      component: worker
