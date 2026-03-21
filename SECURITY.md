@@ -9,7 +9,7 @@
 我们非常重视安全问题。如果您发现安全漏洞，请通过以下方式报告：
 
 1. **不要** 在公开的 GitHub Issue 中报告
-2. 发送邮件至：[待添加邮箱]
+2. 发送邮件至：dev@meng2x.com
 3. 或使用 GitHub 的 [私有漏洞报告](https://github.com/zzcreation/multi-agent-framework/security/advisories/new) 功能
 
 ### 报告内容
@@ -161,8 +161,8 @@ OPENCLAW_AUDIT_LOG_ENABLED=true
 
 ## 联系方式
 
-- 安全问题: security@example.com
-- 常规问题: support@example.com
+- 安全问题: dev@meng2x.com
+- 常规问题: dev@meng2x.com
 - GitHub: https://github.com/zzcreation/multi-agent-framework
 
 ---
