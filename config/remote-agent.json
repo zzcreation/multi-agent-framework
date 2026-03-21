@@ -8,6 +8,7 @@
   "agents": {
     "assistant": {
       "role": "assistant",
+      "agent_id": "main",
       "description": "当本地资源紧张时协助处理拆分后的任务模块",
       "trigger_conditions": [
         "local_cpu_usage > 80",
@@ -17,6 +18,7 @@
     },
     "reviewer": {
       "role": "reviewer", 
+      "agent_id": "main",
       "description": "测试项目，用来二次验证本地工程项目是否存在漏洞或可优化建议",
       "trigger_conditions": [
         "code_review_requested",
@@ -27,6 +29,7 @@
     },
     "sandbox": {
       "role": "sandbox",
+      "agent_id": "main",
       "description": "本地沙盒测试，测试可能存在更大风险的操作和自动化流程",
       "trigger_conditions": [
         "high_risk_command",
@@ -35,6 +38,12 @@
         "system_modification",
         "network_operation"
       ]
+    },
+    "main": {
+      "role": "main",
+      "agent_id": "main",
+      "description": "默认主 Agent",
+      "trigger_conditions": []
     }
   },
   "risk_keywords": {

@@ -53,15 +53,23 @@ class MultiAgentController:
                 'task': task
             }
         else:
-            # 远程执行
-            remote_cmd = self._build_openclaw_command(task, target)
-            result = self.executor.execute_on_remote(remote_cmd)
+            # 远程执行 - 使用 Gateway API 调用远程 Agent
+            # 优先使用 API 方式，失败则 fallback 到 SSH
+            result = self.executor.execute_task(task, agent_type=target, prefer_api=True)
+            
+            # 检查是否需要回退到 SSH
+            if not result.get('success', False) and 'Gateway API' in result.get('error', ''):
+                # API 失败，使用 SSH Shell 方式
+                remote_cmd = self._build_openclaw_command(task, target)
+                result = self.executor.execute_on_remote(remote_cmd)
+                result['method'] = 'ssh_shell_fallback'
             
             return {
                 'executed_by': f'remote_{target}',
                 'result': result,
                 'task': task,
-                'gateway': self.router.get_remote_gateway()
+                'gateway': self.router.get_remote_gateway(),
+                'method': result.get('method', 'gateway_api')
             }
     
     def _build_openclaw_command(self, task: str, agent_type: str) -> str:
