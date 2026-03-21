@@ -54,7 +54,7 @@ class TaskRouter:
         
         return 'low'
     
-    def detect_trigger(self, task: str, context: dict = None) -> str:
+    def detect_trigger(self, task: str, context: dict = None, scheduling_input: dict = None) -> str:
         """
         检测任务应该发往哪个远程 Agent
         返回: 'assistant', 'reviewer', 'sandbox', 'local'
@@ -62,6 +62,7 @@ class TaskRouter:
         task_lower = task.lower()
         agents = self.config.get('agents', {})
         context = context or {}
+        scheduling_input = scheduling_input or {}
         
         # 1. 风险评估决定
         risk = self.assess_risk(task)
@@ -73,7 +74,28 @@ class TaskRouter:
         if any(kw in task_lower for kw in review_keywords):
             return 'reviewer'
         
-        # 3. 资源检查
+        # 3. 调度输入（替代纯关键词）：worker 负载、任务优先级、SLA、重试历史
+        worker_loads = scheduling_input.get('worker_loads', [])
+        priority = scheduling_input.get('priority', 'medium')
+        sla_seconds = scheduling_input.get('sla_seconds', 600)
+        retry_history = scheduling_input.get('retry_history', {})
+
+        has_reviewer = any('review' in (w.get('capabilities') or []) for w in worker_loads)
+        has_sandbox = any('sandbox' in (w.get('capabilities') or []) for w in worker_loads)
+        avg_load = (
+            sum(w.get('load', 0.0) for w in worker_loads) / len(worker_loads)
+            if worker_loads else 0
+        )
+        if risk == 'high' and has_sandbox:
+            return 'sandbox'
+        if priority in ('high', 'critical') and has_reviewer:
+            return 'reviewer'
+        if sla_seconds <= 120 or retry_history.get('retry_count', 0) >= 2:
+            return 'assistant'
+        if avg_load >= 0.8:
+            return 'assistant'
+
+        # 4. 资源检查（兼容旧字段）
         if context.get('cpu_usage', 0) > 80:
             return 'assistant'
         if context.get('queue_length', 0) > 5:
@@ -102,11 +124,11 @@ class TaskRouter:
 """
         return prompt
     
-    def route(self, task: str, context: dict = None) -> dict:
+    def route(self, task: str, context: dict = None, scheduling_input: dict = None) -> dict:
         """
         路由任务，返回执行计划
         """
-        target = self.detect_trigger(task, context)
+        target = self.detect_trigger(task, context, scheduling_input=scheduling_input)
         risk = self.assess_risk(task)
         
         result = {
@@ -114,7 +136,8 @@ class TaskRouter:
             'target': target,
             'risk_level': risk,
             'remote_gateway': self.get_remote_gateway() if target != 'local' else None,
-            'remote_prompt': self.build_remote_task(target, task) if target != 'local' else None
+            'remote_prompt': self.build_remote_task(target, task) if target != 'local' else None,
+            'scheduling_input': scheduling_input or {}
         }
         
         return result

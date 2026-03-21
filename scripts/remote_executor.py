@@ -12,10 +12,13 @@ import time
 import urllib.request
 import urllib.error
 from pathlib import Path
-from typing import Optional, Callable, List, Dict, Any
+from typing import Optional, Callable, List, Dict, Any, Protocol
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 import threading
+from queue import Queue, Empty
+
+from contracts.protocol import TaskSpec
 
 # 配置日志
 logging.basicConfig(
@@ -140,6 +143,62 @@ def cached(ttl: int = 300):
 _task_result_cache: Dict[str, tuple] = {}
 _task_cache_lock = threading.Lock()
 
+_TASK_QUEUE: "Queue[dict]" = Queue()
+_RESULT_QUEUE: "Queue[dict]" = Queue()
+
+
+class TransportAdapter(Protocol):
+    """传输层适配器接口。"""
+
+    def execute(self, task_payload: dict, agent_type: str) -> dict:
+        ...
+
+
+class GatewayTransportAdapter:
+    def __init__(self, executor: "RemoteExecutor"):
+        self.executor = executor
+
+    def execute(self, task_payload: dict, agent_type: str) -> dict:
+        prompt = json.dumps(task_payload, ensure_ascii=False)
+        return self.executor.execute_via_gateway_api(prompt=prompt, agent_type=agent_type)
+
+
+class SSHTransportAdapter:
+    def __init__(self, executor: "RemoteExecutor"):
+        self.executor = executor
+
+    def execute(self, task_payload: dict, agent_type: str) -> dict:
+        prompt = json.dumps(task_payload, ensure_ascii=False)
+        return self.executor.execute_task(task=prompt, agent_type=agent_type, prefer_api=False)
+
+
+class MessageQueueTransportAdapter:
+    """消息队列模式：支持 worker pull / push。"""
+
+    def __init__(self, result_timeout: int = 30):
+        self.result_timeout = result_timeout
+
+    def publish(self, task_payload: dict, agent_type: str) -> None:
+        _TASK_QUEUE.put({"agent_type": agent_type, "task": task_payload})
+
+    def consume(self, timeout: int = 1) -> Optional[dict]:
+        try:
+            return _TASK_QUEUE.get(timeout=timeout)
+        except Empty:
+            return None
+
+    def push_result(self, result: dict) -> None:
+        _RESULT_QUEUE.put(result)
+
+    def execute(self, task_payload: dict, agent_type: str) -> dict:
+        self.publish(task_payload=task_payload, agent_type=agent_type)
+        try:
+            result = _RESULT_QUEUE.get(timeout=self.result_timeout)
+            result["method"] = "mq"
+            return result
+        except Empty:
+            return {"success": False, "error": "消息队列执行超时", "method": "mq"}
+
 
 # ========== RemoteExecutor 类的性能优化方法 ==========
 
@@ -182,6 +241,11 @@ class RemoteExecutor:
     def __init__(self, config_path: str = None):
         self.config_path = config_path or CONFIG_PATH
         self.config = self._load_config()
+        self.adapters: Dict[str, TransportAdapter] = {
+            "gateway": GatewayTransportAdapter(self),
+            "ssh": SSHTransportAdapter(self),
+            "mq": MessageQueueTransportAdapter(),
+        }
         
     def _load_config(self) -> dict:
         with open(self.config_path, 'r', encoding='utf-8') as f:
@@ -521,6 +585,34 @@ export PATH=/home/zzc/.nvm/versions/node/v22.22.1/bin:$PATH
                 'method': 'ssh_openclaw_agent',
                 'agent_type': agent_type
             }
+
+    def execute_task_contract(self, spec: TaskSpec, agent_type: str = "assistant", prefer_transport: str = "auto") -> dict:
+        """统一协议执行入口，不直接拼接 shell 任务字符串。"""
+        payload = {
+            "task_spec": spec.to_dict(),
+            "execution_mode": "contract",
+        }
+        if prefer_transport == "mq":
+            return self.adapters["mq"].execute(payload, agent_type)
+        if prefer_transport == "gateway":
+            return self.adapters["gateway"].execute(payload, agent_type)
+        if prefer_transport == "ssh":
+            return self.adapters["ssh"].execute(payload, agent_type)
+
+        # auto: gateway -> mq -> ssh fallback
+        gateway_result = self.adapters["gateway"].execute(payload, agent_type)
+        if gateway_result.get("success"):
+            gateway_result["transport_path"] = ["gateway"]
+            return gateway_result
+
+        mq_result = self.adapters["mq"].execute(payload, agent_type)
+        if mq_result.get("success"):
+            mq_result["transport_path"] = ["gateway", "mq"]
+            return mq_result
+
+        ssh_result = self.adapters["ssh"].execute(payload, agent_type)
+        ssh_result["transport_path"] = ["gateway", "mq", "ssh"]
+        return ssh_result
     
     def _parse_agent_result(self, result: subprocess.CompletedProcess, agent_type: str, agent_id: str) -> dict:
         """

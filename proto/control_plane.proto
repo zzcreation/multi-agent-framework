@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package multiagent.v1;
+
+message TaskSpec {
+  string task_id = 1;
+  string title = 2;
+  string priority = 3;
+  int32 sla_seconds = 4;
+  string target_capability = 5;
+  int32 retry_count = 6;
+  map<string, string> payload = 7;
+  repeated string tags = 8;
+  string created_at = 9;
+}
+
+message TaskResult {
+  string task_id = 1;
+  bool success = 2;
+  string output_json = 3;
+  string error = 4;
+  string worker_id = 5;
+  string started_at = 6;
+  string finished_at = 7;
+}
+
+message Heartbeat {
+  string worker_id = 1;
+  float load = 2;
+  int32 queue_depth = 3;
+  repeated string capabilities = 4;
+  string timestamp = 5;
+}
+
+message Lease {
+  string worker_id = 1;
+  string lease_id = 2;
+  string expires_at = 3;
+}
+
+message RegisterWorkerRequest {
+  string worker_id = 1;
+  string endpoint = 2;
+  repeated string capabilities = 3;
+}
+
+message RegisterWorkerResponse {
+  bool success = 1;
+  Lease lease = 2;
+}
+
+service ControlPlaneService {
+  rpc SubmitTask(TaskSpec) returns (TaskResult);
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc SendHeartbeat(Heartbeat) returns (Lease);
+}
