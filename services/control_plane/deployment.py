@@ -84,6 +84,17 @@ class DeploymentManager:
         except Exception as e:
             return 1, "", str(e)
 
+    def _get_k8s_strategy_type(self, strategy: DeploymentStrategy) -> str:
+        """Map DeploymentStrategy to valid Kubernetes strategy type"""
+        mapping = {
+            DeploymentStrategy.ROLLING: "RollingUpdate",
+            DeploymentStrategy.RECREATE: "Recreate",
+            # blue-green and canary not supported as k8s strategy type, fallback to RollingUpdate
+            DeploymentStrategy.BLUE_GREEN: "RollingUpdate",
+            DeploymentStrategy.CANARY: "RollingUpdate",
+        }
+        return mapping.get(strategy, "RollingUpdate")
+
     def create_deployment(
         self,
         name: str,
@@ -139,7 +150,7 @@ metadata:
 spec:
   replicas: {replicas}
   strategy:
-    type: {strategy.value.capitalize()}
+    type: {self._get_k8s_strategy_type(strategy)}
   selector:
     matchLabels:
       app: {name}

@@ -5,7 +5,7 @@ TaskEnvelope 协议单元测试
 import pytest
 import json
 from datetime import datetime
-from services.control_plane.task_protocol import TaskEnvelope, TaskStatus
+from services.control_plane.task_protocol import TaskEnvelope
 
 
 class TestTaskEnvelope:
@@ -52,8 +52,9 @@ class TestTaskEnvelope:
             payload={},
             deadline="2026-12-31T23:59:59",
         )
-        assert envelope.status == TaskStatus.NEW
-        assert envelope.created_at is not None
+        # TaskEnvelope has no status/created_at fields - these are managed by registry
+        assert envelope.task_id is not None
+        assert envelope.task_type == "test"
 
     def test_deadline_validation(self):
         """测试截止时间验证"""

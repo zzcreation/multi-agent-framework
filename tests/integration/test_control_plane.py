@@ -13,10 +13,10 @@ class TestControlPlaneIntegration:
 
     def test_full_task_flow(self):
         """测试完整任务流程"""
-        # 1. 初始化
-        registry = WorkerRegistry()
-        scheduler = Scheduler(registry)
-        control_plane = ControlPlane(registry=registry, scheduler=scheduler)
+        # 1. 初始化 - ControlPlane creates registry/scheduler internally
+        control_plane = ControlPlane()
+        registry = control_plane.registry
+        scheduler = control_plane.scheduler
         
         # 2. 注册 Worker
         control_plane.worker_heartbeat(
@@ -43,9 +43,9 @@ class TestControlPlaneIntegration:
         
     def test_task_routing(self):
         """测试任务路由"""
-        registry = WorkerRegistry()
-        scheduler = Scheduler(registry)
-        control_plane = ControlPlane(registry=registry, scheduler=scheduler)
+        control_plane = ControlPlane()
+        registry = control_plane.registry
+        scheduler = control_plane.scheduler
         
         # 注册不同能力的 Worker
         control_plane.worker_heartbeat(
@@ -79,9 +79,9 @@ class TestControlPlaneIntegration:
         
     def test_worker_health_check(self):
         """测试 Worker 健康检查"""
-        registry = WorkerRegistry()
-        scheduler = Scheduler(registry)
-        control_plane = ControlPlane(registry=registry, scheduler=scheduler)
+        control_plane = ControlPlane()
+        registry = control_plane.registry
+        scheduler = control_plane.scheduler
         
         # 注册 Worker
         control_plane.worker_heartbeat(
