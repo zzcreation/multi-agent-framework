@@ -6,6 +6,7 @@ import pytest
 from services.control_plane.control_plane import ControlPlane
 from services.control_plane.scheduler import Scheduler
 from services.control_plane.registry import WorkerRegistry
+from services.control_plane.task_protocol import TaskEnvelope
 
 
 class TestControlPlaneIntegration:
@@ -29,12 +30,14 @@ class TestControlPlaneIntegration:
         )
         
         # 3. 提交任务
-        task_id = control_plane.submit_task(
+        envelope = TaskEnvelope(
             task_type="review",
             priority=5,
             payload={"command": "test command"},
             deadline="2026-12-31T23:59:59",
         )
+        result = control_plane.submit_task(envelope)
+        task_id = result.get("task", {}).get("task_id")
         assert task_id is not None
         
         # 4. 检查任务状态
@@ -66,12 +69,14 @@ class TestControlPlaneIntegration:
         )
         
         # 提交需要 review 的任务
-        task_id = control_plane.submit_task(
+        envelope = TaskEnvelope(
             task_type="review",
             priority=5,
             payload={"required_review": "true"},
             deadline="2026-12-31T23:59:59",
         )
+        result = control_plane.submit_task(envelope)
+        task_id = result.get("task", {}).get("task_id")
         
         # 调度任务
         result = control_plane.dispatch_next_task()

@@ -247,6 +247,7 @@ class DatabaseManager:
                     record.worker_id, json.dumps(record.result) if record.result else None,
                     record.error, record.retry_count, json.dumps(record.metadata)
                 ))
+                conn.commit()
                 cursor.close()
             return True
         else:
@@ -322,6 +323,7 @@ class DatabaseManager:
                     record.model_available, record.registered_at, record.last_heartbeat,
                     json.dumps(record.metadata)
                 ))
+                conn.commit()
                 cursor.close()
             return True
         return True

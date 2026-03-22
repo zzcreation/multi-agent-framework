@@ -13,7 +13,7 @@ class TestWorkerRegistry:
     def test_register_worker(self):
         """测试注册 Worker"""
         registry = WorkerRegistry()
-        worker = registry.register(
+        worker = registry.heartbeat(
             "worker-1",
             capabilities={"review": "true"},
             cpu_usage=20,
@@ -27,7 +27,7 @@ class TestWorkerRegistry:
     def test_heartbeat_update(self):
         """测试心跳更新"""
         registry = WorkerRegistry()
-        registry.register(
+        registry.heartbeat(
             "worker-1",
             capabilities={"review": "true"},
             cpu_usage=20,
@@ -57,7 +57,7 @@ class TestWorkerRegistry:
     def test_worker_expiry(self):
         """测试 Worker 过期"""
         registry = WorkerRegistry()
-        registry.register(
+        registry.heartbeat(
             "worker-1",
             capabilities={"review": "true"},
             cpu_usage=20,
@@ -81,7 +81,7 @@ class TestWorkerRegistry:
     def test_unregister_worker(self):
         """测试注销 Worker"""
         registry = WorkerRegistry()
-        registry.register(
+        registry.heartbeat(
             "worker-1",
             capabilities={"review": "true"},
             cpu_usage=20,
@@ -96,7 +96,7 @@ class TestWorkerRegistry:
     def test_filter_by_capability(self):
         """测试按能力过滤"""
         registry = WorkerRegistry()
-        registry.register(
+        registry.heartbeat(
             "worker-review",
             capabilities={"review": "true", "sandbox": "false"},
             cpu_usage=20,
@@ -104,7 +104,7 @@ class TestWorkerRegistry:
             queue_depth=0,
             model_available=True,
         )
-        registry.register(
+        registry.heartbeat(
             "worker-sandbox",
             capabilities={"review": "false", "sandbox": "true"},
             cpu_usage=20,

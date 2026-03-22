@@ -2,9 +2,13 @@
 OpenClaw Worker SDK 包配置
 """
 
+from pathlib import Path
+
 from setuptools import find_packages, setup
 
-with open("README.md", "r", encoding="utf-8") as f:
+# Resolve README.md relative to project root
+readme_path = Path(__file__).parent.parent.parent / "README.md"
+with open(readme_path, "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(

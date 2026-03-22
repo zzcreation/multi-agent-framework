@@ -23,6 +23,7 @@ try:
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
     from opentelemetry.sdk.metrics import MeterProvider
@@ -73,7 +74,8 @@ class ObservabilityManager:
             })
 
             # 初始化追踪
-            provider = TracerProvider(resource=resource, sampler=sampling_rate)
+            sampler = TraceIdRatioBased(sampling_rate) if sampling_rate else None
+            provider = TracerProvider(resource=resource, sampler=sampler)
 
             # 添加 Console 导出器（开发环境）
             if enable_console:
