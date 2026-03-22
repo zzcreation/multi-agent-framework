@@ -147,11 +147,12 @@ class DatabaseManager:
             result JSONB,
             error TEXT,
             retry_count INTEGER DEFAULT 0,
-            metadata JSONB DEFAULT '{}',
-            INDEX idx_status (status),
-            INDEX idx_created_at (created_at),
-            INDEX idx_worker_id (worker_id)
+            metadata JSONB DEFAULT '{}'
         );
+        
+        CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+        CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+        CREATE INDEX IF NOT EXISTS idx_tasks_worker_id ON tasks(worker_id);
 
         -- Worker 注册表
         CREATE TABLE IF NOT EXISTS workers (
@@ -164,10 +165,11 @@ class DatabaseManager:
             model_available BOOLEAN DEFAULT TRUE,
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            metadata JSONB DEFAULT '{}',
-            INDEX idx_status (status),
-            INDEX idx_last_heartbeat (last_heartbeat)
+            metadata JSONB DEFAULT '{}'
         );
+        
+        CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status);
+        CREATE INDEX IF NOT EXISTS idx_workers_last_heartbeat ON workers(last_heartbeat);
 
         -- 审计日志表
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -178,11 +180,12 @@ class DatabaseManager:
             user_id VARCHAR(255),
             action VARCHAR(100) NOT NULL,
             details JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_entity (entity_type, entity_id),
-            INDEX idx_event_type (event_type),
-            INDEX idx_created_at (created_at)
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        
+        CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_logs(event_type);
+        CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at);
 
         -- 死信队列表
         CREATE TABLE IF NOT EXISTS dead_letter_queue (
@@ -191,9 +194,10 @@ class DatabaseManager:
             payload JSONB NOT NULL,
             failure_reason TEXT NOT NULL,
             retry_count INTEGER DEFAULT 0,
-            failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_task_id (task_id)
+            failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        
+        CREATE INDEX IF NOT EXISTS idx_dlq_task_id ON dead_letter_queue(task_id);
         """
         try:
             conn = self._pool.getconn()

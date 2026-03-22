@@ -8,7 +8,6 @@ resources:
   - deployment-control-plane.yaml
   - deployment-worker.yaml
   - service-control-plane.yaml
-  - service-worker.yaml
   - hpa.yaml
   - pdb.yaml
 

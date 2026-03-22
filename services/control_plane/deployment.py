@@ -61,7 +61,7 @@ class DeploymentManager:
         self.kubeconfig = kubeconfig
         self._deployments: Dict[str, DeploymentRecord] = {}
 
-    def _run_kubectl(self, args: List[str], capture_output: bool = True) -> tuple:
+    def _run_kubectl(self, args: List[str], capture_output: bool = True, input_data: str = None) -> tuple:
         """执行 kubectl 命令"""
         cmd = ["kubectl"]
         if self.kubeconfig:
@@ -74,6 +74,7 @@ class DeploymentManager:
                 capture_output=capture_output,
                 text=True,
                 timeout=300,
+                input=input_data,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -104,11 +105,11 @@ class DeploymentManager:
         # 构建部署 YAML
         manifest = self._build_deployment_manifest(name, image, replicas, strategy)
 
-        # 应用部署
+        # 应用部署 - 通过 stdin 传递 manifest
         returncode, stdout, stderr = self._run_kubectl([
             "apply", "-f", "-",
             "--namespace", self.namespace,
-        ], capture_output=False)
+        ], input_data=manifest, capture_output=False)
 
         if returncode != 0:
             record.status = DeploymentStatus.FAILED

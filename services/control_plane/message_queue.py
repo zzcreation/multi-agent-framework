@@ -76,6 +76,9 @@ class MessageQueue:
 
     def enqueue(self, envelope: Dict[str, Any], delay_seconds: int = 0) -> str:
         """入队任务"""
+        if not self._redis:
+            raise RuntimeError("Redis not available, cannot enqueue")
+
         message = {
             "envelope": json.dumps(envelope),
             "retry_count": "0",
@@ -94,6 +97,8 @@ class MessageQueue:
 
     def process_delayed_tasks(self) -> int:
         """处理延迟队列中到期任务"""
+        if not self._redis:
+            return 0
         delay_key = f"{self.stream_key}:delayed"
         now = time.time()
         # 获取所有到期任务

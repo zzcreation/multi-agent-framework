@@ -88,12 +88,22 @@ class ObservabilityManager:
             trace.set_tracer_provider(provider)
             self._tracer = trace.get_tracer(__name__)
 
-            # 初始化指标
-            metric_reader = PeriodicExportingMetricReader(
-                # ConsoleMetricExporter() for metrics
-            )
-            meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-            metrics.set_meter_provider(meter_provider)
+            # 初始化指标 - 只有配置了 OTLP endpoint 才启用
+            if otlp_endpoint:
+                try:
+                    from opentelemetry.sdk.metrics.export import ConsoleMetricExporter
+                    metric_reader = PeriodicExportingMetricReader(
+                        ConsoleMetricExporter()
+                    )
+                    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+                    metrics.set_meter_provider(meter_provider)
+                except ImportError:
+                    logger.warning("Metric exporter not available, skipping metrics")
+            else:
+                # 无 OTLP endpoint 时使用空的 MeterProvider
+                meter_provider = MeterProvider(resource=resource)
+                metrics.set_meter_provider(meter_provider)
+
             self._meter = metrics.get_meter(__name__)
 
             self._initialized = True
