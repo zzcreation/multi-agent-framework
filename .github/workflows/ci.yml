@@ -31,6 +31,7 @@ jobs:
           
       - name: Type check with mypy
         run: |
+          pip install mypy==0.95 types-redis -q
           mypy services/ --ignore-missing-imports --no-error-summary
           
       - name: Run unit tests
