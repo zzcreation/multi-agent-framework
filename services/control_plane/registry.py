@@ -46,3 +46,10 @@ class WorkerRegistry:
         if worker and worker.is_alive():
             return worker
         return None
+
+    def unregister(self, worker_id: str) -> bool:
+        """注销 Worker"""
+        if worker_id in self._workers:
+            del self._workers[worker_id]
+            return True
+        return False
