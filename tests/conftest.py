@@ -30,7 +30,7 @@ def mock_registry():
     from services.control_plane.registry import WorkerRegistry, WorkerNode
     registry = WorkerRegistry()
     # Add mock workers
-    registry.register(
+    registry.heartbeat(
         "test-worker-1",
         capabilities={"review": "true", "sandbox": "false", "toolset": "python"},
         cpu_usage=20,
@@ -38,7 +38,7 @@ def mock_registry():
         queue_depth=0,
         model_available=True,
     )
-    registry.register(
+    registry.heartbeat(
         "test-worker-2", 
         capabilities={"review": "false", "sandbox": "true", "toolset": "bash"},
         cpu_usage=40,

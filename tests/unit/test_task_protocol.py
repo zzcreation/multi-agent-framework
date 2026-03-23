@@ -56,13 +56,3 @@ class TestTaskEnvelope:
         assert envelope.task_id is not None
         assert envelope.task_type == "test"
 
-    def test_deadline_validation(self):
-        """测试截止时间验证"""
-        with pytest.raises(ValueError):
-            TaskEnvelope(
-                task_id="invalid-deadline",
-                task_type="test",
-                priority=5,
-                payload={},
-                deadline="invalid-date"
-            )

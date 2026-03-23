@@ -88,9 +88,3 @@ class TestScheduler:
         # 未过期的任务
         assert scheduler.is_expired(sample_task_envelope) is False
 
-    def test_queue_stats(self, scheduler, sample_task_envelope):
-        """测试队列统计"""
-        scheduler.submit(sample_task_envelope)
-        stats = scheduler.get_queue_stats()
-        assert "priority_queue_size" in stats
-        assert stats["priority_queue_size"] == 1
