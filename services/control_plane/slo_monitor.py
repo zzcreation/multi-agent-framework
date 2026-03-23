@@ -5,7 +5,7 @@ SLO 监控模块 - 核心链路 99.95% 可用性保障
 from __future__ import annotations
 
 import logging
-import time
+# import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum

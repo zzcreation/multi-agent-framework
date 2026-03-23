@@ -240,7 +240,7 @@ spec:
                 )
                 failure_rate = failed / total
 
-                logger.info(f"Check {i+1}: failure_rate={failure_rate:.2%}")
+                logger.info(f"Check {i + 1}: failure_rate={failure_rate:.2%}")
 
                 if failure_rate > error_threshold:
                     logger.warning(f"Failure rate {failure_rate:.2%} exceeds threshold, initiating rollback")
@@ -251,7 +251,7 @@ spec:
 
             time.sleep(check_interval)
 
-        logger.warning(f"Auto-rollback check completed, no rollback triggered")
+        logger.info(f"Creating deployment for {self.deployment_name}")
         return False
 
     def get_revisions(self, name: str) -> List[Dict]:

@@ -103,7 +103,7 @@ class DatabaseManager:
     def connect(self) -> bool:
         """连接数据库"""
         try:
-            import psycopg2
+            # import psycopg2
             from psycopg2 import pool
             self._psycopg2_available = True
             self._pool = pool.ThreadedConnectionPool(
@@ -149,7 +149,7 @@ class DatabaseManager:
             retry_count INTEGER DEFAULT 0,
             metadata JSONB DEFAULT '{}'
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
         CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
         CREATE INDEX IF NOT EXISTS idx_tasks_worker_id ON tasks(worker_id);
@@ -167,7 +167,7 @@ class DatabaseManager:
             last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             metadata JSONB DEFAULT '{}'
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status);
         CREATE INDEX IF NOT EXISTS idx_workers_last_heartbeat ON workers(last_heartbeat);
 
@@ -182,7 +182,7 @@ class DatabaseManager:
             details JSONB,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id);
         CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_logs(event_type);
         CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at);
@@ -196,7 +196,7 @@ class DatabaseManager:
             retry_count INTEGER DEFAULT 0,
             failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_dlq_task_id ON dead_letter_queue(task_id);
         """
         try:
@@ -228,7 +228,7 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO tasks (task_id, task_type, priority, status, payload, 
+                    INSERT INTO tasks (task_id, task_type, priority, status, payload,
                                        created_at, updated_at, scheduled_at, started_at,
                                        completed_at, worker_id, result, error, retry_count, metadata)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -375,7 +375,7 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO audit_logs (event_type, entity_type, entity_id, 
+                    INSERT INTO audit_logs (event_type, entity_type, entity_id,
                                            user_id, action, details)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (event_type, entity_type, entity_id, user_id, action,
