@@ -66,13 +66,20 @@ class MessageQueue:
             return False
 
     def _ensure_consumer_group(self) -> None:
-        """确保消费者组存在"""
+        """确保消费者组存在（处理 BUSYGROUP 错误）"""
         try:
-            # 检查流是否存在
-            if not self._redis.exists(self.stream_key):
-                self._redis.xgroup_create(self.stream_key, self.consumer_group, id="0", mkstream=True)
+            # 尝试创建消费者组，无论流是否存在
+            # 如果流已存在但组不存在，会创建成功
+            # 如果流和组都存在，会抛出 BUSYGROUP 错误，这是正常的
+            self._redis.xgroup_create(self.stream_key, self.consumer_group, id="0", mkstream=True)
         except Exception as e:
-            print(f"Consumer group creation: {e}")
+            # BUSYGROUP 表示组已存在，这是正常情况
+            error_msg = str(e).upper()
+            if "BUSYGROUP" in error_msg:
+                # 组已存在，忽略此错误
+                pass
+            else:
+                print(f"Consumer group creation: {e}")
 
     def enqueue(self, envelope: Dict[str, Any], delay_seconds: int = 0) -> str:
         """入队任务"""

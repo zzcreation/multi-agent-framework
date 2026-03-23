@@ -11,6 +11,9 @@ readme_path = Path(__file__).parent.parent.parent / "README.md"
 with open(readme_path, "r", encoding="utf-8") as f:
     long_description = f.read()
 
+# 获取所有模块文件（不包括 setup.py 本身）
+py_modules = [p.stem for p in Path(".").glob("*.py") if p.stem != "setup"]
+
 setup(
     name="openclaw-worker-sdk",
     version="0.2.0",
@@ -20,7 +23,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/openclaw/openclaw",
-    packages=find_packages(where="."),
+    py_modules=py_modules,
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -45,7 +48,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "openclaw-worker=worker.runtime:main",
+            "openclaw-worker=runtime:main",
         ],
     },
     package_data={

@@ -206,3 +206,37 @@ def create_worker(
             runtime.load_plugins_from_directory(directory)
 
     return runtime
+
+
+def main():
+    """CLI 入口点"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="OpenClaw Worker")
+    parser.add_argument("--worker-id", required=True, help="Worker ID")
+    parser.add_argument(
+        "--capabilities",
+        nargs="+",
+        default=[],
+        help="Worker capabilities",
+    )
+    parser.add_argument(
+        "--plugin-dir",
+        help="Plugin directory path",
+    )
+    args = parser.parse_args()
+
+    runtime = create_worker(
+        worker_id=args.worker_id,
+        capabilities=args.capabilities,
+        plugin_dirs=[args.plugin_dir] if args.plugin_dir else None,
+    )
+
+    # 启动 worker
+    import asyncio
+
+    asyncio.run(runtime.start())
+
+
+if __name__ == "__main__":
+    main()

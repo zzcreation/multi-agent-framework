@@ -380,6 +380,7 @@ class DatabaseManager:
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (event_type, entity_type, entity_id, user_id, action,
                       json.dumps(details) if details else None))
+                conn.commit()
                 cursor.close()
             return True
         return True
