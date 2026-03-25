@@ -44,3 +44,6 @@ Thumbs.db
 # OpenClaw specific
 *.db
 *.sqlite
+# Coverage reports
+.coverage
+coverage.xml
