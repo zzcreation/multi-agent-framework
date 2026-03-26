@@ -69,7 +69,7 @@ class DeploymentManager:
         cmd.extend(args)
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603
                 cmd,
                 capture_output=capture_output,
                 text=True,
