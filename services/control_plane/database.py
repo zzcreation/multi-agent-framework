@@ -47,7 +47,7 @@ class DatabaseConfig:
         self.port = port
         self.database = database
         self.user = user
-        self.password = password or os.getenv("POSTGRES_PASSWORD", "openclaw")
+        self.password = password or os.getenv("POSTGRES_PASSWORD")
         self.min_pool_size = min_pool_size
         self.max_pool_size = max_pool_size
         self._pool = None
