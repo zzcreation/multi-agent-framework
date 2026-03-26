@@ -1,24 +1,57 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional, List
 
 from scripts.task_router import TaskRouter
 from services.control_plane.registry import WorkerRegistry
 from services.control_plane.saga import SagaManager
 from services.control_plane.scheduler import Scheduler
 from services.control_plane.task_protocol import TaskEnvelope
+from services.control_plane.rate_limiter import (
+    get_rate_limiter_registry,
+    RateLimiterRegistry,
+    CircuitBreakerConfig,
+    CircuitBreakerOpenError,
+)
+from services.control_plane.failover import FailoverManager, HealthMonitor
 from services.worker_runtime.runtime import WorkerRuntime
 
 
 class ControlPlane:
     """Control Plane: 任务接入、路由、调度、策略。"""
 
-    def __init__(self):
+    # Default rate limits
+    DEFAULT_RATE = 100.0  # requests per second
+    DEFAULT_BURST = 200   # burst capacity
+    
+    def __init__(self, rate_limit: Optional[float] = None, burst_limit: Optional[int] = None):
         self.router = TaskRouter()
         self.registry = WorkerRegistry()
         self.scheduler = Scheduler(self.registry)
         self.saga = SagaManager()
         self.runtime = WorkerRuntime()
+        
+        # Initialize rate limiter registry
+        self.rate_limiters = get_rate_limiter_registry()
+        self.default_rate = rate_limit or self.DEFAULT_RATE
+        self.default_burst = burst_limit or self.DEFAULT_BURST
+        
+        # Initialize circuit breaker for runtime
+        self.runtime_breaker = self.rate_limiters.get_or_create_breaker(
+            "runtime",
+            CircuitBreakerConfig(
+                failure_threshold=5,
+                success_threshold=3,
+                timeout_seconds=30.0,
+            )
+        )
+        
+        # Initialize failover manager
+        self.failover_manager = FailoverManager(
+            max_retry_count=3,
+            retry_delay_seconds=2.0,
+        )
+        
         self._register_default_compensation()
 
     def _register_default_compensation(self) -> None:
@@ -38,14 +71,55 @@ class ControlPlane:
             queue_depth=queue_depth,
             model_available=model_available,
         )
-        return {"worker_id": worker.worker_id, "status": "alive", "capabilities": worker.capabilities}
+        
+        # Update health monitor
+        health = self.failover_manager.health_monitor.update_heartbeat(
+            worker_id=worker_id,
+            cpu_usage=cpu_usage,
+            memory_usage=memory_usage,
+            queue_depth=queue_depth,
+            model_available=model_available,
+        )
+        
+        return {
+            "worker_id": worker.worker_id, 
+            "status": "alive", 
+            "capabilities": worker.capabilities,
+            "health_status": health.status.value,
+            "health_score": health.health_score,
+        }
 
     def submit_task(self, envelope: TaskEnvelope, delay_seconds: int = 0) -> Dict:
+        # Apply rate limiting (per tenant or global)
+        tenant_id = envelope.payload.get("tenant_id", "default")
+        limiter_key = f"submit:{tenant_id}"
+        
+        if not self.rate_limiters.check_rate_limit(
+            limiter_key, 
+            self.default_rate, 
+            self.default_burst
+        ):
+            return {
+                "accepted": False, 
+                "reason": "rate_limit_exceeded",
+                "tenant_id": tenant_id,
+                "retry_after": 1.0,
+            }
+        
         self.saga.transition(envelope, "NEW", "QUEUED")
         self.scheduler.submit(envelope, delay_seconds=delay_seconds)
         return {"accepted": True, "task": envelope.to_dict(), "delay_seconds": delay_seconds}
 
     def dispatch_once(self) -> Dict:
+        # Check circuit breaker before dispatching
+        if not self.runtime_breaker.can_execute():
+            return {
+                "dispatched": False,
+                "reason": "circuit_breaker_open",
+                "breaker_state": self.runtime_breaker.state.value,
+                "retry_after": 30.0,
+            }
+        
         task = self.scheduler.next_task()
         if not task:
             return {"dispatched": False, "reason": "queue_empty"}
@@ -70,14 +144,36 @@ class ControlPlane:
             success = execution.get("result", {}).get("success", False)
             if success:
                 self.saga.transition(task, "DISPATCHED", "SUCCEEDED")
+                self.runtime_breaker.record_success()
+                self.failover_manager.mark_task_success(task.task_id, worker.worker_id)
             else:
                 self.saga.transition(task, "DISPATCHED", "FAILED", detail=str(execution.get("result")))
+                self.runtime_breaker.record_failure()
+                # Mark for potential retry on another worker
+                should_retry = self.failover_manager.mark_task_failed(
+                    task.task_id, task, worker.worker_id
+                )
+                if should_retry:
+                    # Re-queue the task for retry
+                    self.scheduler.submit(task, delay_seconds=2)
+                    execution["retry_scheduled"] = True
                 compensation = self.saga.compensate(task)
                 execution["compensation"] = compensation
             execution["preempted"] = preempted
             return execution
+        except Exception as e:
+            self.runtime_breaker.record_failure()
+            raise
         finally:
             self.scheduler.mark_done(worker.worker_id)
+
+    def get_rate_limit_stats(self) -> Dict:
+        """Get rate limiter and circuit breaker statistics"""
+        return self.rate_limiters.get_all_stats()
+
+    def get_failover_stats(self) -> Dict:
+        """Get failover and health monitoring statistics"""
+        return self.failover_manager.get_stats()
 
     def transition_logs(self):
         return self.saga.get_transition_log()
