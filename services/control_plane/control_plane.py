@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from scripts.task_router import TaskRouter
 from services.control_plane.registry import WorkerRegistry
@@ -13,6 +13,7 @@ from services.control_plane.rate_limiter import (
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
 )
+from services.control_plane.failover import FailoverManager, HealthMonitor
 from services.worker_runtime.runtime import WorkerRuntime
 
 
@@ -45,6 +46,12 @@ class ControlPlane:
             )
         )
         
+        # Initialize failover manager
+        self.failover_manager = FailoverManager(
+            max_retry_count=3,
+            retry_delay_seconds=2.0,
+        )
+        
         self._register_default_compensation()
 
     def _register_default_compensation(self) -> None:
@@ -64,7 +71,23 @@ class ControlPlane:
             queue_depth=queue_depth,
             model_available=model_available,
         )
-        return {"worker_id": worker.worker_id, "status": "alive", "capabilities": worker.capabilities}
+        
+        # Update health monitor
+        health = self.failover_manager.health_monitor.update_heartbeat(
+            worker_id=worker_id,
+            cpu_usage=cpu_usage,
+            memory_usage=memory_usage,
+            queue_depth=queue_depth,
+            model_available=model_available,
+        )
+        
+        return {
+            "worker_id": worker.worker_id, 
+            "status": "alive", 
+            "capabilities": worker.capabilities,
+            "health_status": health.status.value,
+            "health_score": health.health_score,
+        }
 
     def submit_task(self, envelope: TaskEnvelope, delay_seconds: int = 0) -> Dict:
         # Apply rate limiting (per tenant or global)
@@ -122,9 +145,18 @@ class ControlPlane:
             if success:
                 self.saga.transition(task, "DISPATCHED", "SUCCEEDED")
                 self.runtime_breaker.record_success()
+                self.failover_manager.mark_task_success(task.task_id, worker.worker_id)
             else:
                 self.saga.transition(task, "DISPATCHED", "FAILED", detail=str(execution.get("result")))
                 self.runtime_breaker.record_failure()
+                # Mark for potential retry on another worker
+                should_retry = self.failover_manager.mark_task_failed(
+                    task.task_id, task, worker.worker_id
+                )
+                if should_retry:
+                    # Re-queue the task for retry
+                    self.scheduler.submit(task, delay_seconds=2)
+                    execution["retry_scheduled"] = True
                 compensation = self.saga.compensate(task)
                 execution["compensation"] = compensation
             execution["preempted"] = preempted
@@ -138,6 +170,10 @@ class ControlPlane:
     def get_rate_limit_stats(self) -> Dict:
         """Get rate limiter and circuit breaker statistics"""
         return self.rate_limiters.get_all_stats()
+
+    def get_failover_stats(self) -> Dict:
+        """Get failover and health monitoring statistics"""
+        return self.failover_manager.get_stats()
 
     def transition_logs(self):
         return self.saga.get_transition_log()
