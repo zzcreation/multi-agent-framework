@@ -14,6 +14,11 @@ from services.control_plane.rate_limiter import (
     CircuitBreakerOpenError,
 )
 from services.control_plane.failover import FailoverManager, HealthMonitor
+from services.control_plane.tenant_manager import (
+    get_tenant_manager,
+    TenantManager,
+    TenantStatus,
+)
 from services.worker_runtime.runtime import WorkerRuntime
 
 
@@ -51,6 +56,9 @@ class ControlPlane:
             max_retry_count=3,
             retry_delay_seconds=2.0,
         )
+        
+        # Initialize tenant manager
+        self.tenant_manager = get_tenant_manager()
         
         self._register_default_compensation()
 
@@ -174,6 +182,45 @@ class ControlPlane:
     def get_failover_stats(self) -> Dict:
         """Get failover and health monitoring statistics"""
         return self.failover_manager.get_stats()
+
+    # Multi-tenant methods
+    
+    def create_tenant(self, name: str, max_workers: int = 10, max_tasks: int = 100) -> Dict:
+        """Create a new tenant."""
+        from services.control_plane.tenant_manager import TenantQuota
+        
+        quota = TenantQuota(
+            max_workers=max_workers,
+            max_concurrent_tasks=max_tasks,
+        )
+        
+        tenant = self.tenant_manager.create_tenant(name=name, quota=quota)
+        return {
+            "tenant_id": tenant.tenant_id,
+            "name": tenant.name,
+            "status": tenant.status.value,
+            "quota": {
+                "max_workers": tenant.quota.max_workers,
+                "max_concurrent_tasks": tenant.quota.max_concurrent_tasks,
+            },
+        }
+    
+    def get_tenant(self, tenant_id: str) -> Optional[Dict]:
+        """Get tenant information."""
+        return self.tenant_manager.get_tenant_usage(tenant_id)
+    
+    def list_tenants(self) -> List[Dict]:
+        """List all tenants."""
+        return [self.tenant_manager.get_tenant_usage(t.tenant_id) 
+                for t in self.tenant_manager.list_tenants()]
+    
+    def suspend_tenant(self, tenant_id: str) -> bool:
+        """Suspend a tenant."""
+        return self.tenant_manager.suspend_tenant(tenant_id)
+    
+    def activate_tenant(self, tenant_id: str) -> bool:
+        """Activate a tenant."""
+        return self.tenant_manager.activate_tenant(tenant_id)
 
     def transition_logs(self):
         return self.saga.get_transition_log()
